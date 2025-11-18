@@ -1,4 +1,5 @@
 // Listen for tab updates to intercept navigation
+// Listen for tab updates to intercept navigation
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 	// Only process when the tab is loading and has a URL
 	if (changeInfo.status === "loading" && tab.url) {
@@ -10,22 +11,19 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 				return;
 			}
 			
-			// Get both deployment and outputType in a single call
-			chrome.storage.local.get([`deployment_${tabId}`, `outputType_${tabId}`], (result) => {
+			// Get deployment, outputType, and token in a single call
+			chrome.storage.local.get([`deployment_${tabId}`, `outputType_${tabId}`, `token_${tabId}`], (result) => {
 				let urlUpdated = false;
 				
 				const deployment = result[`deployment_${tabId}`];
 				const existingD = url.searchParams.get("d");
 				
 				if (deployment && deployment.trim() !== "") {
-					// Check if URL already has the correct 'd' parameter
 					if (existingD !== deployment) {
-						// Update the URL with the deployment parameter
 						url.searchParams.set("d", deployment);
 						urlUpdated = true;
 					}
 				} else {
-					// Remove 'd' parameter if it exists and no deployment is set
 					if (existingD !== null) {
 						url.searchParams.delete("d");
 						urlUpdated = true;
@@ -36,16 +34,28 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 				const existingOutputType = url.searchParams.get("outputType");
 				
 				if (outputType && outputType.trim() !== "") {
-					// Check if URL already has the correct 'outputType' parameter
 					if (existingOutputType !== outputType) {
-						// Update the URL with the outputType parameter
 						url.searchParams.set("outputType", outputType);
 						urlUpdated = true;
 					}
 				} else {
-					// Remove 'outputType' parameter if it exists and no outputType is set
 					if (existingOutputType !== null) {
 						url.searchParams.delete("outputType");
+						urlUpdated = true;
+					}
+				}
+
+				const token = result[`token_${tabId}`];
+				const existingToken = url.searchParams.get("token");
+
+				if (token && token.trim() !== "") {
+					if (existingToken !== token) {
+						url.searchParams.set("token", token);
+						urlUpdated = true;
+					}
+				} else {
+					if (existingToken !== null) {
+						url.searchParams.delete("token");
 						urlUpdated = true;
 					}
 				}
@@ -61,9 +71,9 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 	}
 });
 
-// Clean up deployment number and outputType when tab is closed
+// Clean up deployment number, outputType, and token when tab is closed
 chrome.tabs.onRemoved.addListener((tabId) => {
-	chrome.storage.local.remove([`deployment_${tabId}`, `outputType_${tabId}`], () => {
+	chrome.storage.local.remove([`deployment_${tabId}`, `outputType_${tabId}`, `token_${tabId}`], () => {
 		console.log(`Cleaned up parameters for tab ${tabId}`);
 	});
 });
@@ -79,12 +89,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 				sendResponse({ success: true });
 			});
 		} else {
-			// Clear deployment if empty
 			chrome.storage.local.remove([`deployment_${tabId}`], () => {
 				sendResponse({ success: true });
 			});
 		}
-		return true; // Keep the message channel open for async response
+		return true;
 	}
 	
 	if (request.action === "getDeployment") {
@@ -104,7 +113,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 				sendResponse({ success: true });
 			});
 		} else {
-			// Clear outputType if empty
 			chrome.storage.local.remove([`outputType_${tabId}`], () => {
 				sendResponse({ success: true });
 			});
@@ -119,5 +127,28 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 		});
 		return true;
 	}
-});
 
+	if (request.action === "saveToken") {
+		const tabId = request.tabId;
+		const token = request.token;
+		
+		if (token && token.trim() !== "") {
+			chrome.storage.local.set({ [`token_${tabId}`]: token }, () => {
+				sendResponse({ success: true });
+			});
+		} else {
+			chrome.storage.local.remove([`token_${tabId}`], () => {
+				sendResponse({ success: true });
+			});
+		}
+		return true;
+	}
+	
+	if (request.action === "getToken") {
+		const tabId = request.tabId;
+		chrome.storage.local.get([`token_${tabId}`], (result) => {
+			sendResponse({ token: result[`token_${tabId}`] || "" });
+		});
+		return true;
+	}
+});

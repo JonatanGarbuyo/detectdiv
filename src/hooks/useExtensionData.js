@@ -14,6 +14,8 @@ export const useExtensionData = () => {
   const [outputTypes, setOutputTypes] = useState(["amp-type"]);
   const [selectedOutputType, setSelectedOutputType] = useState("");
 
+  const [token, setToken] = useState("");
+
   const updateUrlParam = useCallback(async (tabId, param, value) => {
     const tab = await getTab(tabId);
     if (tab?.url) {
@@ -60,6 +62,26 @@ export const useExtensionData = () => {
 
       if (response?.success) {
         updateUrlParam(tabId, "outputType", outputType);
+      }
+    },
+    [updateUrlParam]
+  );
+
+  const saveToken = useCallback(
+    async (tabId, tokenValue) => {
+      console.log("saveToken called", { tabId, tokenValue });
+      const response = await sendMessage({
+        action: "saveToken",
+        tabId: tabId,
+        token: tokenValue,
+      });
+      console.log("saveToken response", response);
+
+      if (response?.success) {
+        console.log("saveToken success, updating URL");
+        updateUrlParam(tabId, "token", tokenValue);
+      } else {
+        console.error("saveToken failed or no response");
       }
     },
     [updateUrlParam]
@@ -127,11 +149,32 @@ export const useExtensionData = () => {
             console.error("Error parsing URL:", error);
           }
         }
+
+        // Load saved token for this tab
+        const tokenResponse = await sendMessage({
+          action: "getToken",
+          tabId: tabId,
+        });
+
+        if (tokenResponse?.token) {
+          setToken(tokenResponse.token);
+        } else if (tab.url) {
+          try {
+            const url = new URL(tab.url);
+            const existingToken = url.searchParams.get("token");
+            if (existingToken) {
+              setToken(existingToken);
+              saveToken(tabId, existingToken);
+            }
+          } catch (error) {
+            console.error("Error parsing URL:", error);
+          }
+        }
       }
     };
 
     init();
-  }, [saveDeployment, saveOutputType]);
+  }, [saveDeployment, saveOutputType, saveToken]);
 
   const handleDeploymentChange = (value) => {
     setDeploymentNumber(value);
@@ -144,6 +187,26 @@ export const useExtensionData = () => {
     setSelectedOutputType(value);
     if (currentTabId !== null) {
       saveOutputType(currentTabId, value);
+    }
+  };
+
+  const generateToken = () => {
+    return Math.random().toString(36).substring(2, 10);
+  };
+
+  const toggleToken = (enabled) => {
+    console.log("toggleToken called", { enabled, currentTabId });
+    if (currentTabId === null) return;
+
+    if (enabled) {
+      const newToken = generateToken();
+      console.log("Generated new token", newToken);
+      setToken(newToken);
+      saveToken(currentTabId, newToken);
+    } else {
+      console.log("Clearing token");
+      setToken("");
+      saveToken(currentTabId, "");
     }
   };
 
@@ -173,6 +236,7 @@ export const useExtensionData = () => {
   const clearAll = async () => {
     setDeploymentNumber("");
     setSelectedOutputType("");
+    setToken("");
     if (currentTabId !== null) {
       await sendMessage({
         action: "saveDeployment",
@@ -184,6 +248,11 @@ export const useExtensionData = () => {
         tabId: currentTabId,
         outputType: "",
       });
+      await sendMessage({
+        action: "saveToken",
+        tabId: currentTabId,
+        token: "",
+      });
       
       const tab = await getTab(currentTabId);
       if (tab?.url) {
@@ -193,6 +262,7 @@ export const useExtensionData = () => {
             
             url.searchParams.delete("d");
             url.searchParams.delete("outputType");
+            url.searchParams.delete("token");
             
             await updateTab(currentTabId, { url: url.toString() });
         } catch (error) {
@@ -206,8 +276,10 @@ export const useExtensionData = () => {
     deploymentNumber,
     outputTypes,
     selectedOutputType,
+    token,
     handleDeploymentChange,
     handleOutputTypeChange,
+    toggleToken,
     addOutputType,
     deleteOutputType,
     clearAll,

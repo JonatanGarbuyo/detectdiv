@@ -11,8 +11,10 @@ function App() {
 		deploymentNumber,
 		outputTypes,
 		selectedOutputType,
+		token,
 		handleDeploymentChange,
 		handleOutputTypeChange,
+		toggleToken,
 		addOutputType,
 		deleteOutputType,
 		clearAll,
@@ -29,8 +31,10 @@ function App() {
 					deploymentNumber={deploymentNumber}
 					outputTypes={outputTypes}
 					selectedOutputType={selectedOutputType}
+					token={token}
 					onDeploymentChange={handleDeploymentChange}
 					onOutputTypeChange={handleOutputTypeChange}
+					onToggleToken={toggleToken}
 					onClear={clearAll}
 				/>
 			)}
