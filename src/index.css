@@ -1,0 +1,11 @@
+@import '@picocss/pico';
+
+/* Override Pico CSS for compact extension popup */
+#root {
+	width: 100%;
+	max-width: 640px;
+	margin: 0;
+	padding: 0;
+	min-height: auto;
+	display: block;
+}
