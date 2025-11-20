@@ -1,25 +1,18 @@
 {
-    "manifest_version": 3,
-    "name": "Detectdiv",
-    "version": "0.1.0",
-    "description": "Detectdiv is a tool that helps you inspect content on a web page",
-    "icons": {
-        "128": "/images/favicon/favicon-128x128-rounded.png"
-    },
-    "action": {
-        "default_popup": "index.html"
-    },
-    "permissions": [
-        "scripting",
-        "tabs",
-        "storage",
-        "webNavigation"
-    ],
-    "host_permissions": [
-        "http://*/*",
-        "https://*/*"
-    ],
-    "background": {
-        "service_worker": "background.js"
-    }
+	"manifest_version": 3,
+	"name": "Detectdiv",
+	"version": "0.1.0",
+	"description": "Detectdiv is a tool that helps you inspect content on a web page",
+	"icons": {
+		"128": "/images/favicon/favicon-128x128-rounded.png"
+	},
+	"action": {
+		"default_popup": "index.html"
+	},
+	"permissions": ["scripting", "tabs", "storage", "webNavigation"],
+	"host_permissions": ["http://*/*", "https://*/*"],
+	"background": {
+		"service_worker": "background.js"
+	},
+	"devtools_page": "loader.html"
 }

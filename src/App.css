@@ -44,3 +44,12 @@ body {
 .tab-content {
 	margin-top: var(--pico-spacing);
 }
+
+label.token-switch {
+	grid-template-columns: 1fr auto;
+	width: 100%;
+}
+
+.token-switch__text {
+	margin-bottom: var(--pico-spacing);
+}
