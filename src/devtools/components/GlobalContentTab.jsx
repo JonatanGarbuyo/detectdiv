@@ -109,6 +109,7 @@ const GlobalContentTab = () => {
 						collapsed={collapsed}
 						displayDataTypes={false}
 						enableClipboard={true}
+						style={{ backgroundColor: "transparent" }}
 					/>
 				</div>
 			)}
