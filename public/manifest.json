@@ -1,7 +1,7 @@
 {
 	"manifest_version": 3,
 	"name": "Detectdiv",
-	"version": "0.1.5",
+	"version": "0.1.6",
 	"description": "Detectdiv is a tool that helps you inspect content on a web page",
 	"icons": {
 		"128": "/images/favicon/favicon-128x128-rounded.png"
