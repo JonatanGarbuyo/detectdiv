@@ -14,68 +14,82 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 			// Get deployment, outputType, token, and mxId in a single call
 			chrome.storage.local.get([`deployment_${tabId}`, `outputType_${tabId}`, `token_${tabId}`, `mxId_${tabId}`], (result) => {
 				let urlUpdated = false;
+				let updatesToStorage = {};
 				
+				// Handle 'd' (deployment)
 				const deployment = result[`deployment_${tabId}`];
 				const existingD = url.searchParams.get("d");
 				
-				if (deployment && deployment.trim() !== "") {
+				if (existingD !== null) {
 					if (existingD !== deployment) {
-						url.searchParams.set("d", deployment);
-						urlUpdated = true;
+						// URL has a value different from storage (or storage is empty)
+						// Update storage to match URL
+						updatesToStorage[`deployment_${tabId}`] = existingD;
 					}
-				} else {
-					if (existingD !== null) {
-						url.searchParams.delete("d");
-						urlUpdated = true;
-					}
-				}
-				
-				const outputType = result[`outputType_${tabId}`];
-				const existingOutputType = url.searchParams.get("outputType");
-				
-				if (outputType && outputType.trim() !== "") {
-					if (existingOutputType !== outputType) {
-						url.searchParams.set("outputType", outputType);
-						urlUpdated = true;
-					}
-				} else {
-					if (existingOutputType !== null) {
-						url.searchParams.delete("outputType");
-						urlUpdated = true;
-					}
+				} else if (deployment && deployment.trim() !== "") {
+					// URL has no value, but storage does
+					// Update URL to match storage
+					url.searchParams.set("d", deployment);
+					urlUpdated = true;
 				}
 
+				// Handle 'outputType'
+				const outputType = result[`outputType_${tabId}`];
+				const existingOutputType = url.searchParams.get("outputType");
+
+				if (existingOutputType !== null) {
+					if (existingOutputType !== outputType) {
+						// URL has a value different from storage
+						// Update storage to match URL
+						updatesToStorage[`outputType_${tabId}`] = existingOutputType;
+					}
+				} else if (outputType && outputType.trim() !== "") {
+					// URL has no value, but storage does
+					// Update URL to match storage
+					url.searchParams.set("outputType", outputType);
+					urlUpdated = true;
+				}
+
+				// Handle 'token'
 				const token = result[`token_${tabId}`];
 				const existingToken = url.searchParams.get("token");
 
-				if (token && token.trim() !== "") {
+				if (existingToken !== null) {
 					if (existingToken !== token) {
-						url.searchParams.set("token", token);
-						urlUpdated = true;
+						// URL has a value different from storage
+						// Update storage to match URL
+						updatesToStorage[`token_${tabId}`] = existingToken;
 					}
-				} else {
-					if (existingToken !== null) {
-						url.searchParams.delete("token");
-						urlUpdated = true;
-					}
+				} else if (token && token.trim() !== "") {
+					// URL has no value, but storage does
+					// Update URL to match storage
+					url.searchParams.set("token", token);
+					urlUpdated = true;
 				}
 
+				// Handle 'mxId'
 				const mxId = result[`mxId_${tabId}`];
 				const existingMxId = url.searchParams.get("mxId");
 
-				if (mxId && mxId.trim() !== "") {
+				if (existingMxId !== null) {
 					if (existingMxId !== mxId) {
-						url.searchParams.set("mxId", mxId);
-						urlUpdated = true;
+						// URL has a value different from storage
+						// Update storage to match URL
+						updatesToStorage[`mxId_${tabId}`] = existingMxId;
 					}
-				} else {
-					if (existingMxId !== null) {
-						url.searchParams.delete("mxId");
-						urlUpdated = true;
-					}
+				} else if (mxId && mxId.trim() !== "") {
+					// URL has no value, but storage does
+					// Update URL to match storage
+					url.searchParams.set("mxId", mxId);
+					urlUpdated = true;
+				}
+
+				// Apply storage updates if any
+				if (Object.keys(updatesToStorage).length > 0) {
+					chrome.storage.local.set(updatesToStorage);
 				}
 				
-				// Navigate to the updated URL if any parameter was changed
+				// Navigate to the updated URL if any parameter was changed (only happens if URL was missing params present in storage)
 				if (urlUpdated) {
 					chrome.tabs.update(tabId, { url: url.toString() });
 				}
