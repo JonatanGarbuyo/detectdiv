@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 
 const useFusionData = () => {
 	const [data, setData] = useState({
@@ -13,9 +13,22 @@ const useFusionData = () => {
 	});
 	const [error, setError] = useState(null);
 	const [loading, setLoading] = useState(true);
+	const retryTimeoutRef = useRef(null);
+	const requestIdRef = useRef(0);
 
 	// Smart retry logic to handle async hydration
-	const fetchFusionData = useCallback(function attemptFetch(retryIdx = 0) {
+	const fetchFusionData = useCallback(function attemptFetch(retryIdx = 0, requestId = null) {
+		const activeRequestId = requestId ?? requestIdRef.current + 1;
+		if (requestId === null) {
+			requestIdRef.current = activeRequestId;
+			if (retryTimeoutRef.current !== null) {
+				clearTimeout(retryTimeoutRef.current);
+				retryTimeoutRef.current = null;
+			}
+		}
+
+		if (requestIdRef.current !== activeRequestId) return;
+
 		setLoading(true);
 		if (retryIdx === 0) {
 			setError(null);
@@ -61,24 +74,30 @@ const useFusionData = () => {
 				world: "MAIN",
 			},
 			(results) => {
+				if (requestIdRef.current !== activeRequestId) return;
+
 				const delays = [100, 300, 500, 700, 900];
+				const scheduleRetry = () => {
+					if (retryIdx >= delays.length) return false;
+					retryTimeoutRef.current = setTimeout(
+						() => attemptFetch(retryIdx + 1, activeRequestId),
+						delays[retryIdx]
+					);
+					return true;
+				};
 
 				if (chrome.runtime.lastError) {
-					if (retryIdx >= delays.length) {
+					if (!scheduleRetry()) {
 						setLoading(false);
 						setError(chrome.runtime.lastError.message);
-					} else {
-						setTimeout(() => attemptFetch(retryIdx + 1), delays[retryIdx]);
 					}
 					return;
 				}
 
 				if (!results || !results[0]) {
-					if (retryIdx >= delays.length) {
+					if (!scheduleRetry()) {
 						setLoading(false);
 						setError("No results returned from script execution");
-					} else {
-						setTimeout(() => attemptFetch(retryIdx + 1), delays[retryIdx]);
 					}
 					return;
 				}
@@ -95,9 +114,7 @@ const useFusionData = () => {
 						setError("Error parsing Fusion JSON");
 					}
 				} else {
-					if (retryIdx < delays.length) {
-						setTimeout(() => attemptFetch(retryIdx + 1), delays[retryIdx]);
-					} else {
+					if (!scheduleRetry()) {
 						setLoading(false);
 						// Don't set error here, just empty data
 					}
@@ -117,6 +134,11 @@ const useFusionData = () => {
 
 		return () => {
 			chrome.devtools.network.onNavigated.removeListener(onNavigated);
+			requestIdRef.current += 1;
+			if (retryTimeoutRef.current !== null) {
+				clearTimeout(retryTimeoutRef.current);
+				retryTimeoutRef.current = null;
+			}
 		};
 	}, [fetchFusionData]);
 

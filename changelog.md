@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - Persist the Google Ads Console toggle per tab and keep `google_console=1` synchronized across navigations.
 - Support Fusion data exposed as either the `window.Fusion` object or a `window.Fusion()` function.
+- Cancel stale Fusion retries when refreshing or closing the DevTools panel.
 
 ## [0.1.7] - 2026-07-16
 
