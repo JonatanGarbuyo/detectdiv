@@ -44,7 +44,7 @@ These instructions will help you set up, develop, and run the Detectdiv extensio
 
 ### **Prerequisites**
 
-- [Node.js](https://nodejs.org/) (version 14 or above recommended)
+- [Node.js](https://nodejs.org/) (version 20.19 or above, or version 22.12 or above)
 - [npm](https://www.npmjs.com/) (comes with Node.js)
 
 ### **Installation**
