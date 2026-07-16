@@ -27,11 +27,15 @@ This includes:
   - Ability to toggle or inject parameters such as:
 
     - `?token=latest`
-    - Additional parameters may be added later.
+
+- **Google Ads Console**
+
+  - Toggle the Google Ads Console by adding or removing `google_console=1` from the URL.
+  - Enabling the switch adds the parameter; disabling it removes the parameter.
 
 - **"Clear all" button**
 
-  - Removes all extension-controlled parameters
+  - Removes all extension-controlled parameters, including `google_console`.
   - Restores the page to its normal navigation state.
 
 ## **Getting Started**

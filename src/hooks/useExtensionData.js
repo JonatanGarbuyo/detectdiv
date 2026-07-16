@@ -17,6 +17,7 @@ export const useExtensionData = () => {
   const [selectedMxId, setSelectedMxId] = useState("");
 
   const [token, setToken] = useState("");
+  const [googleConsoleEnabled, setGoogleConsoleEnabled] = useState(false);
 
   const updateUrlParam = useCallback(async (tabId, param, value) => {
     const tab = await getTab(tabId);
@@ -110,6 +111,15 @@ export const useExtensionData = () => {
       if (tab?.id) {
         const tabId = tab.id;
         setCurrentTabId(tabId);
+
+        if (tab.url) {
+          try {
+            const url = new URL(tab.url);
+            setGoogleConsoleEnabled(url.searchParams.get("google_console") === "1");
+          } catch (error) {
+            console.error("Error parsing URL:", error);
+          }
+        }
 
         // Load saved deployment number
         const deploymentResponse = await sendMessage({
@@ -265,6 +275,13 @@ export const useExtensionData = () => {
     }
   };
 
+  const toggleGoogleConsole = (enabled) => {
+    if (currentTabId === null) return;
+
+    setGoogleConsoleEnabled(enabled);
+    updateUrlParam(currentTabId, "google_console", enabled ? "1" : "");
+  };
+
   const addOutputType = (newType) => {
     const trimmedValue = newType.trim();
     if (trimmedValue && !outputTypes.includes(trimmedValue)) {
@@ -312,6 +329,7 @@ export const useExtensionData = () => {
     setDeploymentNumber("");
     setSelectedOutputType("");
     setToken("");
+    setGoogleConsoleEnabled(false);
     if (currentTabId !== null) {
       await sendMessage({
         action: "saveDeployment",
@@ -346,6 +364,7 @@ export const useExtensionData = () => {
             url.searchParams.delete("outputType");
             url.searchParams.delete("token");
             url.searchParams.delete("mxId");
+            url.searchParams.delete("google_console");
             
             await updateTab(currentTabId, { url: url.toString() });
         } catch (error) {
@@ -360,9 +379,11 @@ export const useExtensionData = () => {
     outputTypes,
     selectedOutputType,
     token,
+    googleConsoleEnabled,
     handleDeploymentChange,
     handleOutputTypeChange,
     toggleToken,
+    toggleGoogleConsole,
     addOutputType,
     deleteOutputType,
     clearAll,

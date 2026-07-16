@@ -12,9 +12,11 @@ function App() {
 		outputTypes,
 		selectedOutputType,
 		token,
+		googleConsoleEnabled,
 		handleDeploymentChange,
 		handleOutputTypeChange,
 		toggleToken,
+		toggleGoogleConsole,
 		addOutputType,
 		deleteOutputType,
 		clearAll,
@@ -37,11 +39,13 @@ function App() {
 					outputTypes={outputTypes}
 					selectedOutputType={selectedOutputType}
 					token={token}
+					googleConsoleEnabled={googleConsoleEnabled}
 					mxIds={mxIds}
 					selectedMxId={selectedMxId}
 					onDeploymentChange={handleDeploymentChange}
 					onOutputTypeChange={handleOutputTypeChange}
 					onToggleToken={toggleToken}
+					onToggleGoogleConsole={toggleGoogleConsole}
 					onMxIdChange={handleMxIdChange}
 					onClear={clearAll}
 				/>

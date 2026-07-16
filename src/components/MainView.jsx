@@ -5,11 +5,13 @@ const MainView = ({
 	outputTypes,
 	selectedOutputType,
 	token,
+	googleConsoleEnabled,
 	mxIds,
 	selectedMxId,
 	onDeploymentChange,
 	onOutputTypeChange,
 	onToggleToken,
+	onToggleGoogleConsole,
 	onMxIdChange,
 	onClear,
 }) => {
@@ -72,6 +74,20 @@ const MainView = ({
 						role="switch"
 						checked={!!token}
 						onChange={(e) => onToggleToken(e.target.checked)}
+					/>
+				</div>
+			</label>
+
+			<label htmlFor="googleConsoleSwitch" className="grid token-switch">
+				<div className="token-switch__text">Google Ads Console</div>
+				<div>
+					<input
+						name="googleConsoleSwitch"
+						id="googleConsoleSwitch"
+						type="checkbox"
+						role="switch"
+						checked={googleConsoleEnabled}
+						onChange={(e) => onToggleGoogleConsole(e.target.checked)}
 					/>
 				</div>
 			</label>

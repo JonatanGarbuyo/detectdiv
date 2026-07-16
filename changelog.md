@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.7] - 2026-07-16
+
+### Added
+
+- Add a Google Ads Console switch that toggles the `google_console=1` URL parameter.
+
+## [0.1.6] - 2026-01-20
+
+### Fixed
+
+- Preserve manually changed `d`, `outputType`, `token`, and `mxId` URL parameters by syncing them to extension storage instead of overwriting them with previously stored values.
+
 ## [0.1.5] - 2026-01-09
 
 ### Fixed
