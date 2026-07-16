@@ -33,7 +33,8 @@ const useFusionData = () => {
 
 		const getFusionData = () => {
 			try {
-				const fusion = window.Fusion || window.Fusion?.();
+				const fusionSource = window.Fusion;
+				const fusion = typeof fusionSource === "function" ? fusionSource() : fusionSource;
 				if (!fusion) return null;
 
 				return JSON.stringify({
