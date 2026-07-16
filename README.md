@@ -94,6 +94,7 @@ These instructions will help you set up, develop, and run the Detectdiv extensio
 Run the project checks before submitting changes:
 
 ```bash
+npm test
 npm run lint
 npm run build
 ```
@@ -130,6 +131,7 @@ detectdiv/
 - `npm run dev` — Start development server
 - `npm run build` — Build extension for production
 - `npm run lint` — Run ESLint
+- `npm test` — Run unit tests
 - `npm run preview` — Preview production build
 
 ## Release Notes

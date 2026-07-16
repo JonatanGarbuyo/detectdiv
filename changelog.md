@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [0.1.8] - 2026-07-16
 
+### Added
+
+- Add unit tests for URL and per-tab storage synchronization in the background service worker.
+
 ### Fixed
 
 - Persist the Google Ads Console toggle per tab and keep `google_console=1` synchronized across navigations.
