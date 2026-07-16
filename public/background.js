@@ -1,5 +1,17 @@
 const tabUpdateQueues = new Map();
 
+const PARAMETER_DEFINITIONS = [
+	{ param: "d", storage: "deployment", saveAction: "saveDeployment", getAction: "getDeployment", field: "deployment" },
+	{ param: "outputType", storage: "outputType", saveAction: "saveOutputType", getAction: "getOutputType", field: "outputType" },
+	{ param: "token", storage: "token", saveAction: "saveToken", getAction: "getToken", field: "token" },
+	{ param: "mxId", storage: "mxId", saveAction: "saveMxId", getAction: "getMxId", field: "mxId" },
+	{ param: "google_console", storage: "googleConsole", saveAction: "saveGoogleConsole", getAction: "getGoogleConsole", field: "googleConsole", isValid: (value) => value === "1" },
+];
+
+const storageKey = (definition, tabId) => `${definition.storage}_${tabId}`;
+const isStoredValueValid = (definition, value) =>
+	definition.isValid ? definition.isValid(value) : typeof value === "string" && value.trim() !== "";
+
 const updateTabUrlParams = (tabId, params) => {
 	const previousUpdate = tabUpdateQueues.get(tabId) || Promise.resolve();
 	const nextUpdate = previousUpdate.catch(() => {}).then(() => new Promise((resolve) => {
@@ -55,91 +67,23 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 				return;
 			}
 			
-			// Get deployment, outputType, token, and mxId in a single call
-			chrome.storage.local.get([`deployment_${tabId}`, `outputType_${tabId}`, `token_${tabId}`, `mxId_${tabId}`, `googleConsole_${tabId}`], (result) => {
+			const storageKeys = PARAMETER_DEFINITIONS.map((definition) => storageKey(definition, tabId));
+			chrome.storage.local.get(storageKeys, (result) => {
 				let urlUpdated = false;
 				let updatesToStorage = {};
-				
-				// Handle 'd' (deployment)
-				const deployment = result[`deployment_${tabId}`];
-				const existingD = url.searchParams.get("d");
-				
-				if (existingD !== null) {
-					if (existingD !== deployment) {
-						// URL has a value different from storage (or storage is empty)
-						// Update storage to match URL
-						updatesToStorage[`deployment_${tabId}`] = existingD;
+
+				PARAMETER_DEFINITIONS.forEach((definition) => {
+					const key = storageKey(definition, tabId);
+					const storedValue = result[key];
+					const urlValue = url.searchParams.get(definition.param);
+
+					if (urlValue !== null && urlValue !== storedValue) {
+						updatesToStorage[key] = urlValue;
+					} else if (urlValue === null && isStoredValueValid(definition, storedValue)) {
+						url.searchParams.set(definition.param, storedValue);
+						urlUpdated = true;
 					}
-				} else if (deployment && deployment.trim() !== "") {
-					// URL has no value, but storage does
-					// Update URL to match storage
-					url.searchParams.set("d", deployment);
-					urlUpdated = true;
-				}
-
-				// Handle 'outputType'
-				const outputType = result[`outputType_${tabId}`];
-				const existingOutputType = url.searchParams.get("outputType");
-
-				if (existingOutputType !== null) {
-					if (existingOutputType !== outputType) {
-						// URL has a value different from storage
-						// Update storage to match URL
-						updatesToStorage[`outputType_${tabId}`] = existingOutputType;
-					}
-				} else if (outputType && outputType.trim() !== "") {
-					// URL has no value, but storage does
-					// Update URL to match storage
-					url.searchParams.set("outputType", outputType);
-					urlUpdated = true;
-				}
-
-				// Handle 'token'
-				const token = result[`token_${tabId}`];
-				const existingToken = url.searchParams.get("token");
-
-				if (existingToken !== null) {
-					if (existingToken !== token) {
-						// URL has a value different from storage
-						// Update storage to match URL
-						updatesToStorage[`token_${tabId}`] = existingToken;
-					}
-				} else if (token && token.trim() !== "") {
-					// URL has no value, but storage does
-					// Update URL to match storage
-					url.searchParams.set("token", token);
-					urlUpdated = true;
-				}
-
-				// Handle 'mxId'
-				const mxId = result[`mxId_${tabId}`];
-				const existingMxId = url.searchParams.get("mxId");
-
-				if (existingMxId !== null) {
-					if (existingMxId !== mxId) {
-						// URL has a value different from storage
-						// Update storage to match URL
-						updatesToStorage[`mxId_${tabId}`] = existingMxId;
-					}
-				} else if (mxId && mxId.trim() !== "") {
-					// URL has no value, but storage does
-					// Update URL to match storage
-					url.searchParams.set("mxId", mxId);
-					urlUpdated = true;
-				}
-
-				// Handle 'google_console'
-				const googleConsole = result[`googleConsole_${tabId}`];
-				const existingGoogleConsole = url.searchParams.get("google_console");
-
-				if (existingGoogleConsole !== null) {
-					if (existingGoogleConsole !== googleConsole) {
-						updatesToStorage[`googleConsole_${tabId}`] = existingGoogleConsole;
-					}
-				} else if (googleConsole === "1") {
-					url.searchParams.set("google_console", googleConsole);
-					urlUpdated = true;
-				}
+				});
 
 				// Apply storage updates if any
 				if (Object.keys(updatesToStorage).length > 0) {
@@ -157,136 +101,38 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 	}
 });
 
-// Clean up deployment number, outputType, token, and mxId when tab is closed
 chrome.tabs.onRemoved.addListener((tabId) => {
-	chrome.storage.local.remove([`deployment_${tabId}`, `outputType_${tabId}`, `token_${tabId}`, `mxId_${tabId}`, `googleConsole_${tabId}`], () => {
+	const storageKeys = PARAMETER_DEFINITIONS.map((definition) => storageKey(definition, tabId));
+	chrome.storage.local.remove(storageKeys, () => {
 		console.log(`Cleaned up parameters for tab ${tabId}`);
 	});
 });
 
-// Listen for messages from popup to save deployment number
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 	if (request.action === "updateUrlParams") {
 		updateTabUrlParams(request.tabId, request.params).then(sendResponse);
 		return true;
 	}
 
-	if (request.action === "saveDeployment") {
-		const tabId = request.tabId;
-		const deployment = request.deployment;
-		
-		if (deployment && deployment.trim() !== "") {
-			chrome.storage.local.set({ [`deployment_${tabId}`]: deployment }, () => {
-				sendResponse({ success: true });
-			});
-		} else {
-			chrome.storage.local.remove([`deployment_${tabId}`], () => {
-				sendResponse({ success: true });
-			});
-		}
-		return true;
-	}
-	
-	if (request.action === "getDeployment") {
-		const tabId = request.tabId;
-		chrome.storage.local.get([`deployment_${tabId}`], (result) => {
-			sendResponse({ deployment: result[`deployment_${tabId}`] || "" });
-		});
-		return true;
-	}
-	
-	if (request.action === "saveOutputType") {
-		const tabId = request.tabId;
-		const outputType = request.outputType;
-		
-		if (outputType && outputType.trim() !== "") {
-			chrome.storage.local.set({ [`outputType_${tabId}`]: outputType }, () => {
-				sendResponse({ success: true });
-			});
-		} else {
-			chrome.storage.local.remove([`outputType_${tabId}`], () => {
-				sendResponse({ success: true });
-			});
-		}
-		return true;
-	}
-	
-	if (request.action === "getOutputType") {
-		const tabId = request.tabId;
-		chrome.storage.local.get([`outputType_${tabId}`], (result) => {
-			sendResponse({ outputType: result[`outputType_${tabId}`] || "" });
-		});
-		return true;
-	}
+	const saveDefinition = PARAMETER_DEFINITIONS.find((definition) => definition.saveAction === request.action);
+	if (saveDefinition) {
+		const key = storageKey(saveDefinition, request.tabId);
+		const value = request[saveDefinition.field];
+		const callback = () => sendResponse({ success: true });
 
-	if (request.action === "saveToken") {
-		const tabId = request.tabId;
-		const token = request.token;
-		
-		if (token && token.trim() !== "") {
-			chrome.storage.local.set({ [`token_${tabId}`]: token }, () => {
-				sendResponse({ success: true });
-			});
+		if (isStoredValueValid(saveDefinition, value)) {
+			chrome.storage.local.set({ [key]: value }, callback);
 		} else {
-			chrome.storage.local.remove([`token_${tabId}`], () => {
-				sendResponse({ success: true });
-			});
-		}
-		return true;
-	}
-	
-	if (request.action === "getToken") {
-		const tabId = request.tabId;
-		chrome.storage.local.get([`token_${tabId}`], (result) => {
-			sendResponse({ token: result[`token_${tabId}`] || "" });
-		});
-		return true;
-	}
-
-	if (request.action === "saveMxId") {
-		const tabId = request.tabId;
-		const mxId = request.mxId;
-		
-		if (mxId && mxId.trim() !== "") {
-			chrome.storage.local.set({ [`mxId_${tabId}`]: mxId }, () => {
-				sendResponse({ success: true });
-			});
-		} else {
-			chrome.storage.local.remove([`mxId_${tabId}`], () => {
-				sendResponse({ success: true });
-			});
-		}
-		return true;
-	}
-	
-	if (request.action === "getMxId") {
-		const tabId = request.tabId;
-		chrome.storage.local.get([`mxId_${tabId}`], (result) => {
-			sendResponse({ mxId: result[`mxId_${tabId}`] || "" });
-		});
-		return true;
-	}
-
-	if (request.action === "saveGoogleConsole") {
-		const tabId = request.tabId;
-		const googleConsole = request.googleConsole;
-
-		if (googleConsole === "1") {
-			chrome.storage.local.set({ [`googleConsole_${tabId}`]: googleConsole }, () => {
-				sendResponse({ success: true });
-			});
-		} else {
-			chrome.storage.local.remove([`googleConsole_${tabId}`], () => {
-				sendResponse({ success: true });
-			});
+			chrome.storage.local.remove([key], callback);
 		}
 		return true;
 	}
 
-	if (request.action === "getGoogleConsole") {
-		const tabId = request.tabId;
-		chrome.storage.local.get([`googleConsole_${tabId}`], (result) => {
-			sendResponse({ googleConsole: result[`googleConsole_${tabId}`] || "" });
+	const getDefinition = PARAMETER_DEFINITIONS.find((definition) => definition.getAction === request.action);
+	if (getDefinition) {
+		const key = storageKey(getDefinition, request.tabId);
+		chrome.storage.local.get([key], (result) => {
+			sendResponse({ [getDefinition.field]: result[key] || "" });
 		});
 		return true;
 	}

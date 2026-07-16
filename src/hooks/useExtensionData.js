@@ -6,6 +6,17 @@ import {
   setStorageLocal,
 } from "../utils/chrome";
 
+const PARAMETERS = {
+  deployment: { param: "d", saveAction: "saveDeployment", getAction: "getDeployment", field: "deployment" },
+  outputType: { param: "outputType", saveAction: "saveOutputType", getAction: "getOutputType", field: "outputType" },
+  token: { param: "token", saveAction: "saveToken", getAction: "getToken", field: "token" },
+  mxId: { param: "mxId", saveAction: "saveMxId", getAction: "getMxId", field: "mxId" },
+  googleConsole: { param: "google_console", saveAction: "saveGoogleConsole", getAction: "getGoogleConsole", field: "googleConsole", isValid: (value) => value === "1" },
+};
+
+const isParameterValueValid = (definition, value) =>
+  definition.isValid ? definition.isValid(value) : typeof value === "string" && value.trim() !== "";
+
 export const useExtensionData = () => {
   const [deploymentNumber, setDeploymentNumber] = useState("");
   const [currentTabId, setCurrentTabId] = useState(null);
@@ -25,82 +36,19 @@ export const useExtensionData = () => {
     });
   }, []);
 
-  const saveDeployment = useCallback(
-    async (tabId, deployment) => {
+  const saveParameter = useCallback(
+    async (tabId, definition, value, updateUrl = true) => {
       const response = await sendMessage({
-        action: "saveDeployment",
+        action: definition.saveAction,
         tabId: tabId,
-        deployment: deployment,
+        [definition.field]: value,
       });
 
-      if (response?.success) {
-        updateUrlParam(tabId, "d", deployment);
+      if (response?.success && updateUrl) {
+        await updateUrlParam(tabId, definition.param, value);
       }
-    },
-    [updateUrlParam]
-  );
 
-  const saveOutputType = useCallback(
-    async (tabId, outputType) => {
-      const response = await sendMessage({
-        action: "saveOutputType",
-        tabId: tabId,
-        outputType: outputType,
-      });
-
-      if (response?.success) {
-        updateUrlParam(tabId, "outputType", outputType);
-      }
-    },
-    [updateUrlParam]
-  );
-
-  const saveMxId = useCallback(
-    async (tabId, mxId) => {
-      const response = await sendMessage({
-        action: "saveMxId",
-        tabId: tabId,
-        mxId: mxId,
-      });
-
-      if (response?.success) {
-        updateUrlParam(tabId, "mxId", mxId);
-      }
-    },
-    [updateUrlParam]
-  );
-
-  const saveToken = useCallback(
-    async (tabId, tokenValue) => {
-      console.log("saveToken called", { tabId, tokenValue });
-      const response = await sendMessage({
-        action: "saveToken",
-        tabId: tabId,
-        token: tokenValue,
-      });
-      console.log("saveToken response", response);
-
-      if (response?.success) {
-        console.log("saveToken success, updating URL");
-        updateUrlParam(tabId, "token", tokenValue);
-      } else {
-        console.error("saveToken failed or no response");
-      }
-    },
-    [updateUrlParam]
-  );
-
-  const saveGoogleConsole = useCallback(
-    async (tabId, value) => {
-      const response = await sendMessage({
-        action: "saveGoogleConsole",
-        tabId: tabId,
-        googleConsole: value,
-      });
-
-      if (response?.success) {
-        updateUrlParam(tabId, "google_console", value);
-      }
+      return response;
     },
     [updateUrlParam]
   );
@@ -112,26 +60,34 @@ export const useExtensionData = () => {
         const tabId = tab.id;
         setCurrentTabId(tabId);
 
-        // Load saved deployment number
-        const deploymentResponse = await sendMessage({
-          action: "getDeployment",
-          tabId: tabId,
-        });
-
-        if (deploymentResponse?.deployment) {
-          setDeploymentNumber(deploymentResponse.deployment);
-        } else if (tab.url) {
-          try {
-            const url = new URL(tab.url);
-            const existingDeployment = url.searchParams.get("d");
-            if (existingDeployment) {
-              setDeploymentNumber(existingDeployment);
-              saveDeployment(tabId, existingDeployment);
-            }
-          } catch (error) {
-            console.error("Error parsing URL:", error);
-          }
+        let url = null;
+        try {
+          url = tab.url ? new URL(tab.url) : null;
+        } catch (error) {
+          console.error("Error parsing URL:", error);
         }
+
+        const stateParameters = [
+          { definition: PARAMETERS.deployment, setValue: setDeploymentNumber },
+          { definition: PARAMETERS.outputType, setValue: setSelectedOutputType },
+          { definition: PARAMETERS.token, setValue: setToken },
+          { definition: PARAMETERS.mxId, setValue: setSelectedMxId },
+          { definition: PARAMETERS.googleConsole, setValue: (value) => setGoogleConsoleEnabled(value === "1") },
+        ];
+
+        await Promise.all(stateParameters.map(async ({ definition, setValue }) => {
+          const response = await sendMessage({ action: definition.getAction, tabId: tabId });
+          const storedValue = response?.[definition.field];
+          const urlValue = url?.searchParams.get(definition.param);
+          const value = isParameterValueValid(definition, storedValue) ? storedValue : urlValue;
+
+          if (isParameterValueValid(definition, value)) {
+            setValue(value);
+            if (!isParameterValueValid(definition, storedValue)) {
+              await saveParameter(tabId, definition, value, false);
+            }
+          }
+        }));
 
         // Load saved outputTypes
         const storageResult = await getStorageLocal(["outputTypes"]);
@@ -147,69 +103,6 @@ export const useExtensionData = () => {
           setStorageLocal({ outputTypes: defaultTypes });
         }
 
-        // Load saved outputType for this tab
-        const outputTypeResponse = await sendMessage({
-          action: "getOutputType",
-          tabId: tabId,
-        });
-
-        if (outputTypeResponse?.outputType) {
-          setSelectedOutputType(outputTypeResponse.outputType);
-        } else if (tab.url) {
-          try {
-            const url = new URL(tab.url);
-            const existingOutputType = url.searchParams.get("outputType");
-            if (existingOutputType) {
-              setSelectedOutputType(existingOutputType);
-              saveOutputType(tabId, existingOutputType);
-            }
-          } catch (error) {
-            console.error("Error parsing URL:", error);
-          }
-        }
-
-        // Load saved token for this tab
-        const tokenResponse = await sendMessage({
-          action: "getToken",
-          tabId: tabId,
-        });
-
-        if (tokenResponse?.token) {
-          setToken(tokenResponse.token);
-        } else if (tab.url) {
-          try {
-            const url = new URL(tab.url);
-            const existingToken = url.searchParams.get("token");
-            if (existingToken) {
-              setToken(existingToken);
-              saveToken(tabId, existingToken);
-            }
-          } catch (error) {
-            console.error("Error parsing URL:", error);
-          }
-        }
-
-        // Load saved Google Console state for this tab
-        const googleConsoleResponse = await sendMessage({
-          action: "getGoogleConsole",
-          tabId: tabId,
-        });
-
-        if (googleConsoleResponse?.googleConsole === "1") {
-          setGoogleConsoleEnabled(true);
-        } else if (tab.url) {
-          try {
-            const url = new URL(tab.url);
-            const existingGoogleConsole = url.searchParams.get("google_console");
-            if (existingGoogleConsole === "1") {
-              setGoogleConsoleEnabled(true);
-              saveGoogleConsole(tabId, existingGoogleConsole);
-            }
-          } catch (error) {
-            console.error("Error parsing URL:", error);
-          }
-        }
-
         // Load saved mxIds
         const mxIdsResult = await getStorageLocal(["mxIds"]);
         if (
@@ -220,50 +113,30 @@ export const useExtensionData = () => {
           setMxIds(mxIdsResult.mxIds);
         }
 
-        // Load saved mxId for this tab
-        const mxIdResponse = await sendMessage({
-          action: "getMxId",
-          tabId: tabId,
-        });
-
-        if (mxIdResponse?.mxId) {
-          setSelectedMxId(mxIdResponse.mxId);
-        } else if (tab.url) {
-          try {
-            const url = new URL(tab.url);
-            const existingMxId = url.searchParams.get("mxId");
-            if (existingMxId) {
-              setSelectedMxId(existingMxId);
-              saveMxId(tabId, existingMxId);
-            }
-          } catch (error) {
-            console.error("Error parsing URL:", error);
-          }
-        }
       }
     };
 
     init();
-  }, [saveDeployment, saveOutputType, saveToken, saveMxId, saveGoogleConsole]);
+  }, [saveParameter]);
 
   const handleDeploymentChange = (value) => {
     setDeploymentNumber(value);
     if (currentTabId !== null) {
-      saveDeployment(currentTabId, value);
+      saveParameter(currentTabId, PARAMETERS.deployment, value);
     }
   };
 
   const handleOutputTypeChange = (value) => {
     setSelectedOutputType(value);
     if (currentTabId !== null) {
-      saveOutputType(currentTabId, value);
+      saveParameter(currentTabId, PARAMETERS.outputType, value);
     }
   };
 
   const handleMxIdChange = (value) => {
     setSelectedMxId(value);
     if (currentTabId !== null) {
-      saveMxId(currentTabId, value);
+      saveParameter(currentTabId, PARAMETERS.mxId, value);
     }
   };
 
@@ -279,11 +152,11 @@ export const useExtensionData = () => {
       const newToken = generateToken();
       console.log("Generated new token", newToken);
       setToken(newToken);
-      saveToken(currentTabId, newToken);
+      saveParameter(currentTabId, PARAMETERS.token, newToken);
     } else {
       console.log("Clearing token");
       setToken("");
-      saveToken(currentTabId, "");
+      saveParameter(currentTabId, PARAMETERS.token, "");
     }
   };
 
@@ -291,7 +164,7 @@ export const useExtensionData = () => {
     if (currentTabId === null) return;
 
     setGoogleConsoleEnabled(enabled);
-    saveGoogleConsole(currentTabId, enabled ? "1" : "");
+    saveParameter(currentTabId, PARAMETERS.googleConsole, enabled ? "1" : "");
   };
 
   const addOutputType = (newType) => {
@@ -311,7 +184,7 @@ export const useExtensionData = () => {
 
     if (selectedOutputType === typeToDelete && currentTabId !== null) {
       setSelectedOutputType("");
-      saveOutputType(currentTabId, "");
+      saveParameter(currentTabId, PARAMETERS.outputType, "");
     }
 
     setStorageLocal({ outputTypes: updatedTypes });
@@ -331,7 +204,7 @@ export const useExtensionData = () => {
 
     if (selectedMxId === idToDelete && currentTabId !== null) {
       setSelectedMxId("");
-      saveMxId(currentTabId, "");
+      saveParameter(currentTabId, PARAMETERS.mxId, "");
     }
 
     setStorageLocal({ mxIds: updatedMxIds });
@@ -342,45 +215,17 @@ export const useExtensionData = () => {
     setSelectedOutputType("");
     setToken("");
     setGoogleConsoleEnabled(false);
+    setSelectedMxId("");
     if (currentTabId !== null) {
-      await sendMessage({
-        action: "saveDeployment",
-        tabId: currentTabId,
-        deployment: "",
-      });
-      await sendMessage({
-        action: "saveOutputType",
-        tabId: currentTabId,
-        outputType: "",
-      });
-      await sendMessage({
-        action: "saveToken",
-        tabId: currentTabId,
-        token: "",
-      });
-      await sendMessage({
-        action: "saveMxId",
-        tabId: currentTabId,
-        mxId: "",
-      });
-      await sendMessage({
-        action: "saveGoogleConsole",
-        tabId: currentTabId,
-        googleConsole: "",
-      });
-      
-      setSelectedMxId("");
-      
+      const definitions = Object.values(PARAMETERS);
+      await Promise.all(definitions.map((definition) =>
+        saveParameter(currentTabId, definition, "", false)
+      ));
+
       await sendMessage({
         action: "updateUrlParams",
         tabId: currentTabId,
-        params: {
-          d: "",
-          outputType: "",
-          token: "",
-          mxId: "",
-          google_console: "",
-        },
+        params: Object.fromEntries(definitions.map((definition) => [definition.param, ""])),
       });
     }
   };
