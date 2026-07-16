@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.8] - 2026-07-16
+
+### Fixed
+
+- Persist the Google Ads Console toggle per tab and keep `google_console=1` synchronized across navigations.
+
 ## [0.1.7] - 2026-07-16
 
 ### Added

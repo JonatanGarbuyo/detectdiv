@@ -105,21 +105,27 @@ export const useExtensionData = () => {
     [updateUrlParam]
   );
 
+  const saveGoogleConsole = useCallback(
+    async (tabId, value) => {
+      const response = await sendMessage({
+        action: "saveGoogleConsole",
+        tabId: tabId,
+        googleConsole: value,
+      });
+
+      if (response?.success) {
+        updateUrlParam(tabId, "google_console", value);
+      }
+    },
+    [updateUrlParam]
+  );
+
   useEffect(() => {
     const init = async () => {
       const tab = await getActiveTab();
       if (tab?.id) {
         const tabId = tab.id;
         setCurrentTabId(tabId);
-
-        if (tab.url) {
-          try {
-            const url = new URL(tab.url);
-            setGoogleConsoleEnabled(url.searchParams.get("google_console") === "1");
-          } catch (error) {
-            console.error("Error parsing URL:", error);
-          }
-        }
 
         // Load saved deployment number
         const deploymentResponse = await sendMessage({
@@ -198,6 +204,27 @@ export const useExtensionData = () => {
           }
         }
 
+        // Load saved Google Console state for this tab
+        const googleConsoleResponse = await sendMessage({
+          action: "getGoogleConsole",
+          tabId: tabId,
+        });
+
+        if (googleConsoleResponse?.googleConsole === "1") {
+          setGoogleConsoleEnabled(true);
+        } else if (tab.url) {
+          try {
+            const url = new URL(tab.url);
+            const existingGoogleConsole = url.searchParams.get("google_console");
+            if (existingGoogleConsole === "1") {
+              setGoogleConsoleEnabled(true);
+              saveGoogleConsole(tabId, existingGoogleConsole);
+            }
+          } catch (error) {
+            console.error("Error parsing URL:", error);
+          }
+        }
+
         // Load saved mxIds
         const mxIdsResult = await getStorageLocal(["mxIds"]);
         if (
@@ -232,7 +259,7 @@ export const useExtensionData = () => {
     };
 
     init();
-  }, [saveDeployment, saveOutputType, saveToken, saveMxId]);
+  }, [saveDeployment, saveOutputType, saveToken, saveMxId, saveGoogleConsole]);
 
   const handleDeploymentChange = (value) => {
     setDeploymentNumber(value);
@@ -279,7 +306,7 @@ export const useExtensionData = () => {
     if (currentTabId === null) return;
 
     setGoogleConsoleEnabled(enabled);
-    updateUrlParam(currentTabId, "google_console", enabled ? "1" : "");
+    saveGoogleConsole(currentTabId, enabled ? "1" : "");
   };
 
   const addOutputType = (newType) => {
@@ -350,6 +377,11 @@ export const useExtensionData = () => {
         action: "saveMxId",
         tabId: currentTabId,
         mxId: "",
+      });
+      await sendMessage({
+        action: "saveGoogleConsole",
+        tabId: currentTabId,
+        googleConsole: "",
       });
       
       setSelectedMxId("");

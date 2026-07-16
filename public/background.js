@@ -12,7 +12,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 			}
 			
 			// Get deployment, outputType, token, and mxId in a single call
-			chrome.storage.local.get([`deployment_${tabId}`, `outputType_${tabId}`, `token_${tabId}`, `mxId_${tabId}`], (result) => {
+			chrome.storage.local.get([`deployment_${tabId}`, `outputType_${tabId}`, `token_${tabId}`, `mxId_${tabId}`, `googleConsole_${tabId}`], (result) => {
 				let urlUpdated = false;
 				let updatesToStorage = {};
 				
@@ -84,6 +84,19 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 					urlUpdated = true;
 				}
 
+				// Handle 'google_console'
+				const googleConsole = result[`googleConsole_${tabId}`];
+				const existingGoogleConsole = url.searchParams.get("google_console");
+
+				if (existingGoogleConsole !== null) {
+					if (existingGoogleConsole !== googleConsole) {
+						updatesToStorage[`googleConsole_${tabId}`] = existingGoogleConsole;
+					}
+				} else if (googleConsole === "1") {
+					url.searchParams.set("google_console", googleConsole);
+					urlUpdated = true;
+				}
+
 				// Apply storage updates if any
 				if (Object.keys(updatesToStorage).length > 0) {
 					chrome.storage.local.set(updatesToStorage);
@@ -102,7 +115,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 // Clean up deployment number, outputType, token, and mxId when tab is closed
 chrome.tabs.onRemoved.addListener((tabId) => {
-	chrome.storage.local.remove([`deployment_${tabId}`, `outputType_${tabId}`, `token_${tabId}`, `mxId_${tabId}`], () => {
+	chrome.storage.local.remove([`deployment_${tabId}`, `outputType_${tabId}`, `token_${tabId}`, `mxId_${tabId}`, `googleConsole_${tabId}`], () => {
 		console.log(`Cleaned up parameters for tab ${tabId}`);
 	});
 });
@@ -201,6 +214,30 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 		const tabId = request.tabId;
 		chrome.storage.local.get([`mxId_${tabId}`], (result) => {
 			sendResponse({ mxId: result[`mxId_${tabId}`] || "" });
+		});
+		return true;
+	}
+
+	if (request.action === "saveGoogleConsole") {
+		const tabId = request.tabId;
+		const googleConsole = request.googleConsole;
+
+		if (googleConsole === "1") {
+			chrome.storage.local.set({ [`googleConsole_${tabId}`]: googleConsole }, () => {
+				sendResponse({ success: true });
+			});
+		} else {
+			chrome.storage.local.remove([`googleConsole_${tabId}`], () => {
+				sendResponse({ success: true });
+			});
+		}
+		return true;
+	}
+
+	if (request.action === "getGoogleConsole") {
+		const tabId = request.tabId;
+		chrome.storage.local.get([`googleConsole_${tabId}`], (result) => {
+			sendResponse({ googleConsole: result[`googleConsole_${tabId}`] || "" });
 		});
 		return true;
 	}
