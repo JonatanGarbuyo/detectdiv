@@ -2,8 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import {
   sendMessage,
   getActiveTab,
-  getTab,
-  updateTab,
   getStorageLocal,
   setStorageLocal,
 } from "../utils/chrome";
@@ -20,24 +18,11 @@ export const useExtensionData = () => {
   const [googleConsoleEnabled, setGoogleConsoleEnabled] = useState(false);
 
   const updateUrlParam = useCallback(async (tabId, param, value) => {
-    const tab = await getTab(tabId);
-    if (tab?.url) {
-      try {
-        const url = new URL(tab.url);
-        if (!url.protocol.startsWith("http")) {
-          return;
-        }
-
-        url.searchParams.delete(param);
-        if (value && value.trim() !== "") {
-          url.searchParams.set(param, value);
-        }
-
-        await updateTab(tabId, { url: url.toString() });
-      } catch (error) {
-        console.error("Error updating URL:", error);
-      }
-    }
+    await sendMessage({
+      action: "updateUrlParams",
+      tabId: tabId,
+      params: { [param]: value },
+    });
   }, []);
 
   const saveDeployment = useCallback(
@@ -386,23 +371,17 @@ export const useExtensionData = () => {
       
       setSelectedMxId("");
       
-      const tab = await getTab(currentTabId);
-      if (tab?.url) {
-        try {
-            const url = new URL(tab.url);
-            if (!url.protocol.startsWith("http")) return;
-            
-            url.searchParams.delete("d");
-            url.searchParams.delete("outputType");
-            url.searchParams.delete("token");
-            url.searchParams.delete("mxId");
-            url.searchParams.delete("google_console");
-            
-            await updateTab(currentTabId, { url: url.toString() });
-        } catch (error) {
-            console.error("Error updating URL:", error);
-        }
-      }
+      await sendMessage({
+        action: "updateUrlParams",
+        tabId: currentTabId,
+        params: {
+          d: "",
+          outputType: "",
+          token: "",
+          mxId: "",
+          google_console: "",
+        },
+      });
     }
   };
 

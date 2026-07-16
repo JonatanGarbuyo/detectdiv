@@ -1,4 +1,48 @@
-// Listen for tab updates to intercept navigation
+const tabUpdateQueues = new Map();
+
+const updateTabUrlParams = (tabId, params) => {
+	const previousUpdate = tabUpdateQueues.get(tabId) || Promise.resolve();
+	const nextUpdate = previousUpdate.catch(() => {}).then(() => new Promise((resolve) => {
+		chrome.tabs.get(tabId, (tab) => {
+			if (chrome.runtime.lastError || !tab?.url) {
+				resolve({ success: false });
+				return;
+			}
+
+			try {
+				const url = new URL(tab.url);
+				if (!url.protocol.startsWith("http")) {
+					resolve({ success: false });
+					return;
+				}
+
+				Object.entries(params).forEach(([param, value]) => {
+					url.searchParams.delete(param);
+					if (typeof value === "string" && value.trim() !== "") {
+						url.searchParams.set(param, value);
+					}
+				});
+
+				chrome.tabs.update(tabId, { url: url.toString() }, () => {
+					resolve({ success: !chrome.runtime.lastError });
+				});
+			} catch (error) {
+				console.error("Error updating URL parameters:", error);
+				resolve({ success: false });
+			}
+		});
+	}));
+
+	tabUpdateQueues.set(tabId, nextUpdate);
+	nextUpdate.finally(() => {
+		if (tabUpdateQueues.get(tabId) === nextUpdate) {
+			tabUpdateQueues.delete(tabId);
+		}
+	});
+
+	return nextUpdate;
+};
+
 // Listen for tab updates to intercept navigation
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 	// Only process when the tab is loading and has a URL
@@ -122,6 +166,11 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 
 // Listen for messages from popup to save deployment number
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+	if (request.action === "updateUrlParams") {
+		updateTabUrlParams(request.tabId, request.params).then(sendResponse);
+		return true;
+	}
+
 	if (request.action === "saveDeployment") {
 		const tabId = request.tabId;
 		const deployment = request.deployment;
